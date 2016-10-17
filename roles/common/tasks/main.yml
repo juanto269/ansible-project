@@ -1,0 +1,68 @@
+---
+#- name: Update repository
+#  apt:
+#    update_cache=yes
+  
+- name: Install Fail2ban
+  apt:
+    name=fail2ban
+    state=latest
+- name: Install git
+  apt:
+    name=git
+    state=latest
+
+- name: Disable login root
+  lineinfile: 
+    dest=/etc/ssh/sshd_config 
+    regexp='PermitRootLogin\syes' 
+    line='PermitRootLogin no'
+
+- name: Disable password authentication
+  lineinfile: 
+    dest=/etc/ssh/sshd_config 
+    regexp='#PasswordAuthentication\syes\s' 
+    line='PasswordAuthentication no'
+
+- name: Add users
+  user: 
+    name={{ item.name }}
+    groups=sudo
+    shell=/bin/bash
+    createhome=yes
+  with_items: "{{ arrayusers }}"
+
+- name: Create .ssh folder
+  file:
+    path=/home/{{ item.name }}/.ssh
+    state=directory
+    owner={{ item.name }}
+    mode=0700
+  with_items: "{{ arrayusers }}"
+
+- name: Set up authorized key
+  authorized_key:
+    user={{ item.name }}
+    key={{ item.key }}
+  with_items: "{{ arrayusers }}"
+
+# Solo disponible en ansible 2.2.0
+#- name: set timezone to Europe/Madrid
+#  timezone: name=Europe/Madrid
+- name: set timezone to Europe/Madrid
+  command: /usr/bin/timedatectl set-timezone Europe/Madrid
+  
+
+- name: Ensuse a locale exists
+  locale_gen: 
+     name=es_ES.UTF-8
+     state=present
+
+#Configure iptables
+- name: Configure iptables
+  command: /sbin/iptables -A INPUT -i lo -j ACCEPT
+  command: /sbin/iptables -A OUTPUT -o lo -j ACCEPT
+  command: /sbin/iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+  command: /sbin/iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
+  command: /sbin/iptables -A INPUT -p tcp --dport 22 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+  command: /sbin/iptables -A OUTPUT -p tcp --sport 22 -m conntrack --ctstate ESTABLISHED -j ACCEPT

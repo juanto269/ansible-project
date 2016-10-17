@@ -1,0 +1,53 @@
+---
+- name: Install nginx
+  apt:
+    name=nginx
+    state=latest
+- name: Enable nginx in fail2ban
+  replace: 
+    dest=/etc/fail2ban/jail.conf
+    regexp='\[nginx-http-auth\]\n\nenabled\s=\sfalse'
+    replace='[nginx-http-auth]\n\nenable = true'
+
+- name: Add repository
+  apt_repository:
+    repo=ppa:ondrej/php
+
+- name: Allow all incoming HTTP and HTTPS
+  command: /sbin/iptables -A INPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+  command: /sbin/iptables -A OUTPUT -p tcp -m multiport --dports 80,443 -m conntrack --ctstate ESTABLISHED -j ACCEPT
+
+- name: Update repository
+  apt:
+    update_cache=yes
+
+- name: Install php 5.6
+  apt:
+    name=php5.6-fpm
+    state=present
+
+- name: Edit symlink php
+  file:
+    src: /usr/bin/php5.6
+    dest: /usr/bin/php
+
+- name: Install package for php
+  apt: name=php5.6-cli state= present
+  apt: name=php5.6-gd state=present
+  apt: name=php5.6-mysql state=present
+  apt: name=php5.6-xml state=present
+  apt: name=php5.6-common state=present
+  apt: name=php5.6-json state=present
+  apt: name=php5.6-opcache state=present
+  apt: name=php-common state=present
+  apt: name=php5.6-fpm state=present
+  apt: name=php5.6-mbstring state=present
+  apt: name=php5.6-readline state=present
+
+- name: Install composer
+  command: /usr/bin/php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');"
+  command: /usr/bin/php -r "if (hash_file('SHA384', '/tmp/composer-setup.php') === 'e115a8dc7871f15d853148a7fbac7da27d6c0030b848d9b3dc09e2a0388afed865e6a3d6b3c0fad45c48e2b5fc1196ae') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('/tmp/composer-setup.php'); } echo PHP_EOL;"
+  command: /usr/bin/php /tmp/composer-setup.php --install-dir=/bin --filename=composer
+
+- name: Delete file composer
+  command: rm /tmp/composer-setup.php
